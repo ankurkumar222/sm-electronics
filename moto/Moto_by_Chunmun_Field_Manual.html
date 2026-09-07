@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project Moto — by Chunmun — Billing Summary Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink-900:#0B1B2B;
+    --ink-800:#122A40;
+    --ink-700:#1B3A54;
+    --ink-line:#2C4A66;
+    --paper:#ECE7D8;
+    --paper-dark:#DCD5BF;
+    --paper-text:#2A2418;
+    --brass:#C9A227;
+    --brass-bright:#E4C25E;
+    --text:#E9E4D6;
+    --text-soft:#A9B8C6;
+    --text-faint:#7488A0;
+    --teal:#4FB286;
+    --rust:#C1613F;
+    --rust-bright:#DD8B65;
+    --radius:10px;
+    --serif:'Fraunces', serif;
+    --sans:'IBM Plex Sans', sans-serif;
+    --mono:'IBM Plex Mono', monospace;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--ink-900);
+    background-image:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(201,162,39,0.09), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(79,178,134,0.06), transparent 55%);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  a{color:var(--brass-bright);}
+
+  ::selection{background:var(--brass); color:var(--ink-900);}
+
+  /* ───────────────────────── LAYOUT ───────────────────────── */
+  .page{
+    display:grid;
+    grid-template-columns:260px minmax(0,1fr);
+    max-width:1320px;
+    margin:0 auto;
+  }
+  .spine{
+    position:sticky; top:0; align-self:start;
+    height:100vh;
+    padding:36px 22px 36px 32px;
+    border-right:1px solid var(--ink-line);
+    overflow-y:auto;
+  }
+  .spine::-webkit-scrollbar{width:6px;}
+  .spine::-webkit-scrollbar-thumb{background:var(--ink-line); border-radius:3px;}
+
+  .spine-brand{
+    font-family:var(--serif);
+    font-weight:700;
+    font-size:1.05rem;
+    color:var(--brass-bright);
+    letter-spacing:0.02em;
+    margin-bottom:4px;
+  }
+  .spine-sub{
+    font-size:0.72rem;
+    color:var(--text-faint);
+    text-transform:uppercase;
+    letter-spacing:0.12em;
+    margin-bottom:28px;
+    padding-bottom:22px;
+    border-bottom:1px dashed var(--ink-line);
+  }
+  .spine nav a{
+    display:flex;
+    gap:10px;
+    align-items:baseline;
+    font-size:0.86rem;
+    text-decoration:none;
+    color:var(--text-soft);
+    padding:7px 0;
+    transition:color .15s ease, transform .15s ease;
+  }
+  .spine nav a:hover{color:var(--brass-bright); transform:translateX(3px);}
+  .spine nav a .num{
+    font-family:var(--mono);
+    color:var(--text-faint);
+    font-size:0.74rem;
+    min-width:24px;
+  }
+  .spine nav a.zero{color:var(--rust-bright);}
+  .spine nav a.zero .num{color:var(--rust-bright);}
+
+  main{padding:0 56px 100px;}
+
+  /* ───────────────────────── COVER ───────────────────────── */
+  .cover{
+    padding:74px 0 50px;
+    border-bottom:1px solid var(--ink-line);
+    margin-bottom:56px;
+    position:relative;
+  }
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:0.76rem;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--teal);
+    margin-bottom:18px;
+  }
+  h1.title{
+    font-family:var(--serif);
+    font-weight:900;
+    font-size:clamp(2.2rem, 4.6vw, 3.4rem);
+    line-height:1.06;
+    margin:0 0 6px;
+    color:var(--text);
+  }
+  h1.title em{
+    font-style:italic;
+    font-weight:400;
+    color:var(--brass-bright);
+  }
+  .subtitle{
+    font-family:var(--mono);
+    font-size:0.95rem;
+    letter-spacing:0.06em;
+    color:var(--teal);
+    text-transform:uppercase;
+    margin:0 0 20px;
+  }
+  .moto{
+    font-family:var(--serif);
+    font-style:italic;
+    font-weight:400;
+    font-size:1.3rem;
+    color:var(--text-soft);
+    margin:0 0 34px;
+  }
+
+  .cover-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr 168px;
+    gap:22px;
+    align-items:stretch;
+  }
+  .cover-card{
+    background:linear-gradient(180deg, var(--ink-800), var(--ink-700));
+    border:1px solid var(--ink-line);
+    border-radius:var(--radius);
+    padding:18px 20px;
+  }
+  .cover-card .k{
+    font-family:var(--mono);
+    font-size:0.68rem;
+    text-transform:uppercase;
+    letter-spacing:0.12em;
+    color:var(--text-faint);
+    margin-bottom:6px;
+  }
+  .cover-card .v{
+    font-family:var(--serif);
+    font-weight:700;
+    font-size:1.4rem;
+    color:var(--text);
+  }
+  .cover-card .v small{
+    display:block;
+    font-family:var(--sans);
+    font-weight:400;
+    font-size:0.8rem;
+    color:var(--text-soft);
+    margin-top:2px;
+  }
+
+  /* seal */
+  .seal{
+    display:flex; align-items:center; justify-content:center;
+  }
+  .seal-ring{
+    width:150px; height:150px;
+    border-radius:50%;
+    background:
+      radial-gradient(circle at 35% 30%, rgba(255,255,255,0.10), transparent 45%),
+      conic-gradient(from -40deg, var(--brass), var(--brass-bright), var(--brass) 90%);
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+    box-shadow:0 8px 24px rgba(0,0,0,0.35), inset 0 0 0 2px rgba(255,255,255,0.15);
+  }
+  .seal-ring::before{
+    content:"";
+    position:absolute; inset:9px;
+    border-radius:50%;
+    border:1.5px dashed rgba(11,27,43,0.45);
+  }
+  .seal-inner{
+    width:112px; height:112px;
+    border-radius:50%;
+    background:var(--ink-900);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center;
+    color:var(--brass-bright);
+  }
+  .seal-inner .l1{font-family:var(--mono); font-size:0.52rem; letter-spacing:0.1em; color:var(--text-faint); text-transform:uppercase;}
+  .seal-inner .l2{font-family:var(--serif); font-weight:700; font-size:0.98rem; line-height:1.15; margin:3px 0;}
+  .seal-inner .l3{font-family:var(--mono); font-size:0.5rem; letter-spacing:0.08em; color:var(--teal); text-transform:uppercase;}
+
+  /* ───────────────────────── SECTIONS ───────────────────────── */
+  section{margin:0 0 68px;}
+  .sec-head{
+    display:flex; align-items:baseline; gap:16px;
+    margin-bottom:22px;
+    padding-bottom:14px;
+    border-bottom:1px solid var(--ink-line);
+  }
+  .sec-num{
+    font-family:var(--mono);
+    color:var(--brass);
+    font-size:1rem;
+    min-width:34px;
+  }
+  .sec-num.zero{color:var(--rust-bright);}
+  h2{
+    font-family:var(--serif);
+    font-weight:700;
+    font-size:1.7rem;
+    margin:0;
+    color:var(--text);
+  }
+  h3{
+    font-family:var(--serif);
+    font-weight:600;
+    font-size:1.18rem;
+    color:var(--brass-bright);
+    margin:28px 0 12px;
+  }
+  p{color:var(--text-soft); max-width:74ch;}
+  p.lead{color:var(--text); font-size:1.05rem;}
+  strong{color:var(--text); font-weight:600;}
+  code{
+    font-family:var(--mono);
+    background:rgba(255,255,255,0.06);
+    padding:1px 6px;
+    border-radius:4px;
+    font-size:0.88em;
+    color:var(--brass-bright);
+  }
+
+  /* ASCII / terminal card */
+  .diagram{
+    position:relative;
+    margin:20px 0 26px;
+    border-radius:var(--radius);
+    background:var(--paper);
+    box-shadow:0 10px 28px rgba(0,0,0,0.28);
+    overflow:hidden;
+  }
+  .diagram .tab{
+    display:flex; align-items:center; gap:8px;
+    background:var(--paper-dark);
+    padding:8px 16px;
+    font-family:var(--mono);
+    font-size:0.72rem;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:#5b5138;
+    border-bottom:1px solid rgba(0,0,0,0.08);
+  }
+  .diagram .tab .dot{width:8px; height:8px; border-radius:50%; background:var(--rust); opacity:.55;}
+  .diagram .tab .dot:nth-child(2){background:var(--brass);}
+  .diagram .tab .dot:nth-child(3){background:var(--teal);}
+  .diagram pre{
+    margin:0;
+    padding:18px 22px 22px;
+    font-family:var(--mono);
+    font-size:0.82rem;
+    line-height:1.5;
+    color:var(--paper-text);
+    overflow-x:auto;
+    white-space:pre;
+  }
+
+  /* tables */
+  .tblwrap{
+    border-radius:var(--radius);
+    overflow:hidden;
+    border:1px solid var(--ink-line);
+    margin:18px 0 28px;
+  }
+  table{width:100%; border-collapse:collapse; font-size:0.88rem;}
+  thead th{
+    background:var(--ink-700);
+    color:var(--brass-bright);
+    text-align:left;
+    padding:11px 14px;
+    font-family:var(--mono);
+    font-size:0.72rem;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    border-bottom:1px solid var(--ink-line);
+  }
+  tbody td{
+    padding:11px 14px;
+    border-bottom:1px solid var(--ink-line);
+    color:var(--text-soft);
+    vertical-align:top;
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(odd){background:rgba(255,255,255,0.015);}
+  td.col-name, td.mono{font-family:var(--mono); color:var(--brass-bright); font-size:0.82rem; white-space:nowrap;}
+  td strong{color:var(--text);}
+
+  .tag{
+    display:inline-block;
+    font-family:var(--mono);
+    font-size:0.68rem;
+    padding:2px 8px;
+    border-radius:20px;
+    letter-spacing:0.03em;
+  }
+  .tag.hard{background:rgba(193,97,63,0.18); color:var(--rust-bright); border:1px solid rgba(193,97,63,0.4);}
+  .tag.auto{background:rgba(79,178,134,0.16); color:var(--teal); border:1px solid rgba(79,178,134,0.4);}
+  .tag.risk{background:rgba(201,162,39,0.16); color:var(--brass-bright); border:1px solid rgba(201,162,39,0.4);}
+
+  /* callouts */
+  .callout{
+    border-radius:var(--radius);
+    padding:18px 22px;
+    margin:20px 0;
+    border-left:3px solid var(--brass);
+    background:linear-gradient(90deg, rgba(201,162,39,0.09), transparent 60%);
+  }
+  .callout.warn{border-left-color:var(--rust); background:linear-gradient(90deg, rgba(193,97,63,0.10), transparent 60%);}
+  .callout.ok{border-left-color:var(--teal); background:linear-gradient(90deg, rgba(79,178,134,0.10), transparent 60%);}
+  .callout p{margin:0; color:var(--text);}
+  .callout .lbl{
+    font-family:var(--mono); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.1em;
+    color:var(--brass-bright); display:block; margin-bottom:6px;
+  }
+  .callout.warn .lbl{color:var(--rust-bright);}
+  .callout.ok .lbl{color:var(--teal);}
+
+  /* two column */
+  .cols2{display:grid; grid-template-columns:1fr 1fr; gap:22px;}
+  @media (max-width:900px){ .cols2{grid-template-columns:1fr;} .cover-grid{grid-template-columns:1fr;} .page{grid-template-columns:1fr;} .spine{position:relative; height:auto;} main{padding:0 22px 80px;} }
+
+  footer{
+    border-top:1px solid var(--ink-line);
+    padding:30px 0 10px;
+    color:var(--text-faint);
+    font-size:0.82rem;
+    font-family:var(--mono);
+  }
+  footer .stamp{color:var(--brass-bright);}
+
+  .checklist{list-style:none; padding:0; margin:16px 0;}
+  .checklist li{
+    display:flex; gap:12px; padding:9px 0;
+    border-bottom:1px dashed var(--ink-line);
+    color:var(--text-soft);
+  }
+  .checklist li::before{content:"☐"; color:var(--brass); font-size:1.1rem; line-height:1;}
+  .checklist li strong{color:var(--text);}
+
+  .step-pill{
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:var(--mono); font-size:0.72rem; letter-spacing:0.08em; text-transform:uppercase;
+    padding:4px 12px; border-radius:20px; margin-bottom:14px;
+  }
+  .step-pill.one{background:rgba(193,97,63,0.16); color:var(--rust-bright); border:1px solid rgba(193,97,63,0.4);}
+  .step-pill.two{background:rgba(79,178,134,0.16); color:var(--teal); border:1px solid rgba(79,178,134,0.4);}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ══════════════════════ SPINE NAV ══════════════════════ -->
+  <aside class="spine">
+    <div class="spine-brand">Project Moto</div>
+    <div class="spine-sub">by Chunmun — Field Manual</div>
+    <nav>
+      <a href="#s0" class="zero"><span class="num">00</span> Before You Begin</a>
+      <a href="#s1"><span class="num">01</span> The Big Picture</a>
+      <a href="#s2"><span class="num">02</span> Inside the Two Files</a>
+      <a href="#s3"><span class="num">03</span> Columns We Actually Use</a>
+      <a href="#s4"><span class="num">04</span> The Core Calculation</a>
+      <a href="#s5"><span class="num">05</span> Basic Value vs Total Value</a>
+      <a href="#s6"><span class="num">06</span> The JNS-TFT Carve-out</a>
+      <a href="#s7"><span class="num">07</span> Fuzzy Name Matching</a>
+      <a href="#s8"><span class="num">08</span> Every Assumption Made</a>
+      <a href="#s9"><span class="num">09</span> Hardcoded vs Automatic</a>
+      <a href="#s10"><span class="num">10</span> Adding a New Person</a>
+      <a href="#s11"><span class="num">11</span> When It Can Go Wrong</a>
+      <a href="#s12"><span class="num">12</span> How Validation Works</a>
+      <a href="#s13"><span class="num">13</span> Monthly Checklist</a>
+    </nav>
+  </aside>
+
+  <!-- ══════════════════════ MAIN ══════════════════════ -->
+  <main>
+
+    <div class="cover">
+      <div class="eyebrow">Field Manual · v1.1 · Handover Document</div>
+      <h1 class="title">Project Moto — <em>by Chunmun</em></h1>
+      <div class="subtitle">Billing Summary Generator</div>
+      <p class="moto">"Target बताता है क्या करना था, Achievement बताता है क्या हुआ — यह script सिर्फ फ़र्क़ दिखाता है, ईमानदारी से।"</p>
+
+      <div class="cover-grid">
+        <div class="cover-card">
+          <div class="k">Client</div>
+          <div class="v">Lalli</div>
+        </div>
+        <div class="cover-card">
+          <div class="k">Developer</div>
+          <div class="v">Chunmun</div>
+        </div>
+        <div class="seal">
+          <div class="seal-ring">
+            <div class="seal-inner">
+              <span class="l1">Project</span>
+              <span class="l2">Moto</span>
+              <span class="l3">by Chunmun</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ 00 BEFORE YOU BEGIN ══════════════════ -->
+    <section id="s0">
+      <div class="sec-head"><span class="sec-num zero">00</span><h2>Before You Begin — Two Scripts, Two Steps</h2></div>
+      <p class="lead">There are <strong>two separate notebooks</strong>. Always run them in this order — never skip Step 1.</p>
+
+      <div class="diagram">
+        <div class="tab"><span class="dot"></span><span class="dot"></span><span class="dot"></span>ascii — two-step-workflow.txt</div>
+        <pre>   STEP 1 — VALIDATE                        STEP 2 — GENERATE
+   ┌───────────────────────────┐            ┌───────────────────────────┐
+   │ Moto_InputFiles_          │            │ Billing_Summary_          │
+   │ Validator.ipynb           │   ─────▶   │ Generator.ipynb           │
+   │                           │  only run  │                           │
+   │ checks the raw files for: │  step 2 if │ does the actual           │
+   │  • duplicate rows          │  step 1 is │ Target vs Achievement     │
+   │  • missing / blank data    │   CLEAN    │ calculation                │
+   │  • broken references       │            │                           │
+   └───────────────────────────┘            └───────────────────────────┘
+         RUN THIS FIRST                            RUN THIS SECOND</pre>
+      </div>
+
+      <div class="callout warn">
+        <span class="lbl">Why this order matters</span>
+        <p>Step 2 trusts the numbers it's given — it does not go looking for duplicate invoices or blank cells in the source files. If dirty data goes in at Step 1, Step 2 will calculate confidently and correctly... on the wrong numbers. Always get a clean bill of health from the Validator first.</p>
+      </div>
+
+      <ol style="color:var(--text-soft); padding-left:20px;">
+        <li style="margin-bottom:8px;"><span class="step-pill one">Step 1</span><br>Run <code>Moto_InputFiles_Validator.ipynb</code> on this month's <code>targets.xlsx</code> and Billing Report. Read its output — it lists duplicate rows and missing/blank data it found.</li>
+        <li style="margin-bottom:8px;"><span class="step-pill two">Step 2</span><br>Only once you're satisfied the files are clean, run <code>Billing_Summary_Generator.ipynb</code> (everything else in this manual describes this script).</li>
+      </ol>
+    </section>
+
+    <!-- ══════════════════ 01 BIG PICTURE ══════════════════ -->
+    <section id="s1">
+      <div class="sec-head"><span class="sec-num">01</span><h2>The Big Picture</h2></div>
+      <p class="lead">In one sentence: <strong>Target</strong> = what we planned to sell. <strong>Achievement</strong> = what we actually billed. The whole script exists to line these two up, per person, honestly.</p>
+
+      <div class="diagram">
+        <div class="tab"><span class="dot"></span><span class="dot"></span><span class="dot"></span>ascii — pipeline.txt</div>
+        <pre>  ┌──────────────────┐      ┌───────────────────────┐
+  │   targets.xlsx    │      │ 21_Aug_Billing_Report │
+  │  (WHAT WE WANT)   │      │ (WHAT WE ACTUALLY     │
+  │                    │      │  BILLED)               │
+  └─────────┬──────────┘      └───────────┬────────────┘
+            │                             │
+            ▼                             ▼
+  ┌───────────────────────────────────────────────────┐
+  │             THE NOTEBOOK  (9 steps)                │
+  │   reads both → matches names → does the math       │
+  └───────────────────────┬─────────────────────────────┘
+                           ▼
+                 ┌────────────────────────┐
+                 │  Billing_Summary_....  │
+                 │       .xlsx            │
+                 │  (TARGET vs ACTUAL)    │
+                 └────────────────────────┘</pre>
+      </div>
+    </section>
+
+    <!-- ══════════════════ 02 INSIDE FILES ══════════════════ -->
+    <section id="s2">
+      <div class="sec-head"><span class="sec-num">02</span><h2>What's Inside Each Input File</h2></div>
+
+      <div class="diagram">
+        <div class="tab"><span class="dot"></span><span class="dot"></span><span class="dot"></span>ascii — targets.xlsx</div>
+        <pre>  targets.xlsx   (ONE flat sheet — one row per product line)
+  ┌────┬──────────┬─────────────────┬─────┬──────────┬──────────┐
+  │ .. │ Currency │ Sales Incharge  │ ... │ Aug_Val  │ Sept_Val │
+  ├────┼──────────┼─────────────────┼─────┼──────────┼──────────┤
+  │ .. │ INR      │ KULDEEP KUMAR   │ ... │ 500000   │ 510000   │ ← Line business
+  │ .. │ USD      │ ARPIT SINGH     │ ... │ 30000    │ 32000    │ ← USD-SG business
+  │ .. │ DIRECT   │ HARSH DOSHI     │ ... │ 5000     │ 4800     │ ← USD-Direct business
+  └────┴──────────┴─────────────────┴─────┴──────────┴──────────┘
+          ↑ this ONE column decides which "bucket" the row's TARGET belongs to</pre>
+      </div>
+
+      <div class="diagram">
+        <div class="tab"><span class="dot"></span><span class="dot"></span><span class="dot"></span>ascii — 21_Aug_Billing_Report.xlsx</div>
+        <pre>  21_Aug_Billing_Report.xlsx   (4 separate sheets)
+  ┌──────────┬──────────┬─────────┬───────────────────────┐
+  │   Line   │  MOUSER  │   USD   │        Direct          │
+  ├──────────┴──────────┴─────────┴───────────────────────┤
+  │ each sheet = actual invoices billed this month          │
+  │ each has a "salesperson" column + a value column        │
+  └────────────────────────────────────────────────────────┘</pre>
+      </div>
+
+      <div class="callout">
+        <span class="lbl">Key idea</span>
+        <p>Target comes from <strong>one file</strong> organised by a <code>Currency</code> column. Achievement comes from <strong>another file</strong> organised by <em>which sheet</em> a row sits in. The script's whole job is lining these two different organisations up, person by person.</p>
+      </div>
+    </section>
+
+    <!-- ══════════════════ 03 COLUMNS USED ══════════════════ -->
+    <section id="s3">
+      <div class="sec-head"><span class="sec-num">03</span><h2>Columns We Actually Use — and Why</h2></div>
+      <p>Both files have 20-50 columns. The script only ever touches a handful. Everything else (SAP numbers, part numbers, zones, quantities, prices…) is ignored — it's not needed for a Target-vs-Achievement report.</p>
+
+      <h3>From <code>targets.xlsx</code></h3>
+      <div class="tblwrap">
+        <table>
+          <thead><tr><th style="width:20%">Column</th><th style="width:14%">Used for</th><th>Why we need it</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="col-name">Currency</td>
+              <td><span class="tag auto">Bucketing</span></td>
+              <td>Tells us which business the row's target belongs to: <code>INR</code> → Line (₹Cr), <code>USD</code> → USD-SG ($M), <code>DIRECT</code> → USD-Direct ($M). Without this column we can't split one flat sheet into three business lines.</td>
+            </tr>
+            <tr>
+              <td class="col-name">Sales Incharge</td>
+              <td><span class="tag auto">Grouping</span></td>
+              <td>The salesperson who owns this target. We group-and-sum every row by this column to get "how much is <em>this person's</em> target."</td>
+            </tr>
+            <tr>
+              <td class="col-name">Customer Name</td>
+              <td><span class="tag auto">JNS carve-out</span></td>
+              <td>Only checked for one thing: does it contain <code>"JNS"</code>? If yes, that row's target is pulled into the separate JNS-TFT line instead of plain USD-SG (see §06).</td>
+            </tr>
+            <tr>
+              <td class="col-name">&lt;Month&gt;_FY..._Val<br><span style="color:var(--text-faint); font-size:0.78rem;">e.g. Aug_FY2627_Val</span></td>
+              <td><span class="tag auto">The number</span></td>
+              <td>The actual target rupee/dollar figure for the month being reported. The script auto-detects <em>which month's</em> column to read from the Billing Report's own invoice dates — it never has to be told the month by hand.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>From the Billing Report (per sheet)</h3>
+      <div class="tblwrap">
+        <table>
+          <thead><tr><th style="width:12%">Sheet</th><th style="width:18%">Column</th><th style="width:14%">Used for</th><th>Why we need it</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Line</strong></td>
+              <td class="col-name">Basic Value</td>
+              <td><span class="tag auto">The number</span></td>
+              <td>The pre-tax billed amount — this is the true "achievement" figure. <strong>Not</strong> "Total Value" (that includes GST/freight and overstates the real number — see §05).</td>
+            </tr>
+            <tr>
+              <td><strong>Line</strong></td>
+              <td class="col-name">Sales Employee Name</td>
+              <td><span class="tag auto">Grouping</span></td>
+              <td>Who billed this invoice — grouped the same way as <code>Sales Incharge</code> in targets.xlsx, after fuzzy name-matching (§07).</td>
+            </tr>
+            <tr>
+              <td><strong>Mouser</strong></td>
+              <td class="col-name">Basic Value</td>
+              <td><span class="tag auto">The number</span></td>
+              <td>Same reasoning as Line — pre-tax achievement for Mouser-brand billing.</td>
+            </tr>
+            <tr>
+              <td><strong>Mouser</strong></td>
+              <td class="col-name">Sales Employee Name</td>
+              <td><span class="tag auto">Grouping</span></td>
+              <td>Same as above.</td>
+            </tr>
+            <tr>
+              <td><strong>USD</strong></td>
+              <td class="col-name">Row Total in USD</td>
+              <td><span class="tag auto">The number</span></td>
+              <td>This sheet has no separate Basic/Total split — this single column is the achievement figure for USD-SG business.</td>
+            </tr>
+            <tr>
+              <td><strong>USD</strong></td>
+              <td class="col-name">Sales Employee</td>
+              <td><span class="tag auto">Grouping</span></td>
+              <td>Same grouping role as the Line sheet's salesperson column.</td>
+            </tr>
+            <tr>
+              <td><strong>USD</strong></td>
+              <td class="col-name">Customer Name</td>
+              <td><span class="tag auto">JNS carve-out</span></td>
+              <td>Checked for <code>"JNS"</code> — any matching row is moved out of USD-SG into JNS-TFT achievement, mirroring the target-side carve-out.</td>
+            </tr>
+            <tr>
+              <td><strong>Direct</strong></td>
+              <td class="col-name">Row Total in USD</td>
+              <td><span class="tag auto">The number</span></td>
+              <td>Achievement figure for USD-Direct business.</td>
+            </tr>
+            <tr>
+              <td><strong>Direct</strong></td>
+              <td class="col-name">Sales Person</td>
+              <td><span class="tag auto">Grouping</span></td>
+              <td>Same grouping role (note: this sheet calls the column "Sales <em>Person</em>", not "Sales Employee" — the script looks for both spellings).</td>
+            </tr>
+            <tr>
+              <td><strong>All 4 sheets</strong></td>
+              <td class="col-name">Inv Date / Posting Date / Document Date<br><span style="color:var(--text-faint); font-size:0.78rem;">(whichever exists)</span></td>
+              <td><span class="tag auto">Month detection</span></td>
+              <td>Not part of the money calculation at all — used once, up front, to figure out <em>which month</em> this report is for, so the right target column gets picked automatically.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ══════════════════ 04 CORE CALC ══════════════════ -->
+    <section id="s4">
+      <div class="sec-head"><span class="sec-num">04</span><h2>The Core Calculation</h2></div>
+      <p>Same shape, every single time, for every business line: <strong>filter → group → sum → divide</strong>.</p>
+
+      <div class="diagram">
+        <div class="tab"><span class="dot"></span><span class="dot"></span><span class="dot"></span>ascii — calc-flow.txt</div>
+        <pre>                     TARGET                       ACHIEVEMENT
+                (from targets.xlsx)           (from Billing Report)
+                       │                               │
+                       ▼                               ▼
+              ┌─────────────────┐            ┌──────────────────────┐
+              │ filter rows by  │            │  filter rows by       │
+              │ Currency =      │            │  which SHEET           │
+              │ INR/USD/DIRECT  │            │  (Line/USD/Direct)     │
+              └────────┬────────┘            └──────────┬─────────────┘
+                       │                                 │
+                       ▼                                 ▼
+              ┌─────────────────┐            ┌──────────────────────┐
+              │ group by        │            │  group by              │
+              │ Sales Incharge  │            │  Sales Employee/Person  │
+              └────────┬────────┘            └──────────┬─────────────┘
+                       │                                 │
+                       ▼                                 ▼
+              ┌─────────────────┐            ┌──────────────────────┐
+              │ SUM this month's│            │  SUM Basic Value        │
+              │ _Val column     │            │  (not Total Value!)     │
+              └────────┬────────┘            └──────────┬─────────────┘
+                       │                                 │
+                       └────────────┬────────────────────┘
+                                    ▼
+                          ┌───────────────────┐
+                          │  %  =  ACH / TGT   │
+                          └───────────────────┘</pre>
+      </div>
+    </section>
+
+    <!-- ══════════════════ 05 BASIC VS TOTAL ══════════════════ -->
+    <section id="s5">
+      <div class="sec-head"><span class="sec-num">05</span><h2>Basic Value vs Total Value</h2></div>
+      <p>This one column choice was the single biggest source of error before it was fixed.</p>
+      <div class="diagram">
+        <div class="tab"><span class="dot"></span><span class="dot"></span><span class="dot"></span>ascii — why-basic-value.txt</div>
+        <pre>  Total Value  =  Basic Value + GST + Freight + Tax    ← includes extra stuff
+  Basic Value  =  the actual pre-tax billing number     ← THIS is what matches
+                                                            real reported numbers</pre>
+      </div>
+      <div class="callout ok">
+        <span class="lbl">How we know</span>
+        <p>The Billing Report's own printed grand-total row (row 1 of the Line/Mouser sheets) lines up <em>exactly</em> under "Basic Value" — not "Total Value". That's the company's own arithmetic confirming which column is correct.</p>
+      </div>
+    </section>
+
+    <!-- ══════════════════ 06 JNS ══════════════════ -->
+    <section id="s6">
+      <div class="sec-head"><span class="sec-num">06</span><h2>The JNS-TFT Carve-out</h2></div>
+      <p>One customer — <strong>JNS Instruments</strong> — sits inside the ordinary USD sheet, but real business practice tracks it as its own line, separate from generic USD-SG.</p>
+      <div class="diagram">
+        <div class="tab"><span class="dot"></span><span class="dot"></span><span class="dot"></span>ascii — jns-carveout.txt</div>
+        <pre>   USD sheet (as it arrives)
+   ┌────────────────────────────────────┐
+   │ Customer: Acme Corp        → USD-SG │
+   │ Customer: JNS INSTRUMENTS  → ???    │  ← treated differently
+   │ Customer: Beta Ltd         → USD-SG │     in real business
+   └────────────────────────────────────┘
+                     │
+                     ▼   if Customer Name contains "JNS"
+           ┌─────────────────────┐
+           │   pulled OUT of      │
+           │   USD-SG into its    │
+           │   own bucket:        │
+           │      "JNS-TFT"        │
+           └─────────────────────┘</pre>
+      </div>
+      <div class="callout">
+        <span class="lbl">How we found it</span>
+        <p>Four identical $107,640 rows for one customer accounted for the <em>entire</em> gap between the raw USD sheet total and the real reported USD-SG figure. Not a guess — a traceable, provable pattern in the data.</p>
+      </div>
+    </section>
+
+    <!-- ══════════════════ 07 NAME MATCHING ══════════════════ -->
+    <section id="s7">
+      <div class="sec-head"><span class="sec-num">07</span><h2>Fuzzy Name Matching</h2></div>
+      <p>Real files spell the same person differently across sheets. The script compares every name it finds to every other name and merges the ones that are similar enough — automatically, no maintained list required.</p>
+      <div class="diagram">
+        <div class="tab"><span class="dot"></span><span class="dot"></span><span class="dot"></span>ascii — name-match.txt</div>
+        <pre>   Raw names seen across both files:
+
+   "DHIRENDER PANDEY"   ─┐
+                          ├── 92% similar  →  merged into ONE person
+   "DHIRENDRA PANDEY"   ─┘
+
+   "SURAJ PANDEY"       ─┐
+                          ├── only 40% similar  →  NOT merged (correctly!)
+   "DHIRENDER PANDEY"   ─┘</pre>
+      </div>
+      <p>Every merge the script makes is printed on screen each run, so a human can catch a wrong merge before it silently combines two different people's numbers.</p>
+    </section>
+
+    <!-- ══════════════════ 08 ASSUMPTIONS ══════════════════ -->
+    <section id="s8">
+      <div class="sec-head"><span class="sec-num">08</span><h2>Every Assumption Baked In</h2></div>
+      <div class="tblwrap">
+        <table>
+          <thead><tr><th style="width:4%">#</th><th style="width:32%">Assumption</th><th>Breaks if…</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">1</td><td>Real headers sit on <strong>row 2</strong>, not row 1 (row 1 is a totals row)</td><td>Someone reformats the file and headers move to row 1</td></tr>
+            <tr><td class="mono">2</td><td>targets.xlsx has columns containing the words <em>"currency"</em> and <em>"sales incharge"</em> (any case)</td><td>Renamed to something with no shared words, e.g. "Ccy"</td></tr>
+            <tr><td class="mono">3</td><td>Billing Report has sheets literally starting <em>"Line"</em>, <em>"Mouser"</em>, <em>"USD"</em>, <em>"Direct"</em></td><td>Sheet renamed to something unrelated, e.g. "Domestic"</td></tr>
+            <tr><td class="mono">4</td><td>Month columns are named <code>&lt;Mon&gt;_FY..._Val</code> — <strong>July</strong>/<strong>Sept</strong> spelled in full</td><td>FY naming convention changes completely</td></tr>
+            <tr><td class="mono">5</td><td>Achievement = <strong>Basic Value</strong> column (pre-tax)</td><td>Billing Report stops including this column</td></tr>
+            <tr><td class="mono">6</td><td><em>"JNS"</em> in Customer Name = the special TFT account</td><td>JNS renames their legal entity entirely</td></tr>
+            <tr><td class="mono">7</td><td>A date column contains <em>"inv date"</em> / <em>"posting date"</em> / <em>"document date"</em></td><td>New/renamed date column, e.g. "Bill Date"</td></tr>
+            <tr><td class="mono">8</td><td>Two names ≥ 90% similar = the same person</td><td>Two <em>different</em> people happen to have very similar names</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ══════════════════ 09 HARDCODED VS AUTO ══════════════════ -->
+    <section id="s9">
+      <div class="sec-head"><span class="sec-num">09</span><h2>Hardcoded vs Automatic</h2></div>
+      <div class="cols2">
+        <div>
+          <h3><span class="tag hard">Hardcoded</span> — edit Step 1 by hand</h3>
+          <ul class="checklist">
+            <li><strong>REPORT_PERSONS</strong> — the exact names, spelling, and order shown in the report</li>
+            <li><strong>MOUSER_TARGET_LAKH_DEFAULT</strong> (13L guess) — Base File has zero Mouser targets to read</li>
+            <li><strong>MOUSER_TARGET_LAKH_OVERRIDES</strong> — Harsh=55, Abhishekh=3 (real confirmed numbers)</li>
+            <li><strong>INCLUDE_JNS_TFT</strong> / <strong>JNS_CUSTOMER_MATCH</strong> — the "JNS" keyword and on/off switch</li>
+            <li><strong>NAME_MATCH_THRESHOLD</strong> — the 90% similarity cutoff</li>
+          </ul>
+        </div>
+        <div>
+          <h3><span class="tag auto">Automatic</span> — no edit ever needed</h3>
+          <ul class="checklist">
+            <li>Which file is the Base File vs the Billing Report</li>
+            <li>Which month is being reported</li>
+            <li>Salesperson name matching (typos, spelling variants)</li>
+            <li>All Target vs Achievement math</li>
+            <li>Output filename + timestamp</li>
+            <li>Validation / reconciliation checks</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════ 10 NEW PERSON ══════════════════ -->
+    <section id="s10">
+      <div class="sec-head"><span class="sec-num">10</span><h2>Adding a New Person</h2></div>
+      <div class="diagram">
+        <div class="tab"><span class="dot"></span><span class="dot"></span><span class="dot"></span>ascii — new-joiner.txt</div>
+        <pre>   New rep "PRIYA MEHTA" joins and should appear in the report
+                          │
+                          ▼
+   ┌─────────────────────────────────────────────┐
+   │ Open Step 1 → REPORT_PERSONS list             │
+   │ Add:  ('PRIYA MEHTA', 'Priya Mehta')         │
+   └─────────────────────────────────────────────┘
+                          │
+                          ▼
+     Does she have a real Mouser target yet?
+             │                        │
+            NO                       YES
+             │                        │
+             ▼                        ▼
+    She gets the 13L flat     Add to MOUSER_TARGET_LAKH_OVERRIDES:
+    guess automatically         'PRIYA MEHTA': &lt;real number&gt;</pre>
+      </div>
+      <p>Nothing else changes. Her INR / USD-SG / USD-Direct targets and achievement are picked up automatically the moment her name (even slightly misspelled) shows up in the source files.</p>
+    </section>
+
+    <!-- ══════════════════ 11 WHEN WRONG ══════════════════ -->
+    <section id="s11">
+      <div class="sec-head"><span class="sec-num">11</span><h2>🚨 When Could This Give a Wrong Answer?</h2></div>
+      <div class="tblwrap">
+        <table>
+          <thead><tr><th style="width:22%">Risk</th><th style="width:34%">Why it happens</th><th>How you'd notice</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="tag risk">Format change</span> Headers reformatted</td>
+              <td>Row 1/2 assumption breaks</td>
+              <td>Script <strong>crashes loudly</strong> — good, it fails safe instead of guessing.</td>
+            </tr>
+            <tr>
+              <td><span class="tag risk">Name gap</span> Very different spelling / nickname</td>
+              <td>Fuzzy match (90%) doesn't catch it — billing "vanishes" from that person's target</td>
+              <td>Step 8's reconciliation prints a <strong>MISMATCH</strong>.</td>
+            </tr>
+            <tr>
+              <td><span class="tag risk">Wrong merge</span> Two different people, similar names</td>
+              <td>Fuzzy match wrongly merges them — numbers get combined</td>
+              <td>Step 3b prints <strong>every merge</strong> — read it each run.</td>
+            </tr>
+            <tr>
+              <td><span class="tag risk">Stale numbers</span> Mouser / JNS figures go out of date</td>
+              <td>These are hand-typed, not computed — nobody updates them</td>
+              <td>No automatic warning — this is a <strong>human process gap</strong>, not a bug.</td>
+            </tr>
+            <tr>
+              <td><span class="tag risk">Unknown flag</span> The "Sales Changes" reassignment flag</td>
+              <td>50 rows in targets.xlsx carry a flag we couldn't decode</td>
+              <td>A few people's targets are off by ~1-2% (known, unresolved).</td>
+            </tr>
+            <tr>
+              <td><span class="tag risk">Renamed column</span> A sheet/column gets renamed</td>
+              <td>Fuzzy column matching needs <em>some</em> shared keywords</td>
+              <td>Script crashes, or that category quietly reads as 0.</td>
+            </tr>
+            <tr>
+              <td><span class="tag risk">Skipped Step 1</span> Validator not run first</td>
+              <td>Duplicate rows or missing data in the source files go unnoticed</td>
+              <td>Generator calculates confidently on bad input — always run <code>Moto_InputFiles_Validator.ipynb</code> first (see §00).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ══════════════════ 12 HOW VALIDATION WORKS ══════════════════ -->
+    <section id="s12">
+      <div class="sec-head"><span class="sec-num">12</span><h2>How Validation / Reconciliation Works</h2></div>
+      <p class="lead">Before the final Excel file is saved, the Generator checks its own math <strong>two different ways</strong> — and refuses to stay quiet if they disagree.</p>
+
+      <div class="diagram">
+        <div class="tab"><span class="dot"></span><span class="dot"></span><span class="dot"></span>ascii — reconciliation.txt</div>
+        <pre>   WAY 1                                    WAY 2
+   Add up every person's                    The raw total already
+   achievement, one by one                  printed at the top of the
+   (Kuldeep + Arpit + Mahesh + ...)          Billing Report sheet itself
+              │                                          │
+              └───────────────┬──────────────────────────┘
+                               ▼
+                     Do these two numbers
+                           MATCH?
+                       │            │
+                     YES            NO
+                       │            │
+                       ▼            ▼
+                 print "OK"    print "MISMATCH"
+                                     │
+                                     ▼
+                     almost always means: a salesperson's
+                     name didn't get matched correctly and
+                     their billing "fell through the cracks"</pre>
+      </div>
+
+      <h3>Two extra sanity scans, every run</h3>
+      <ul class="checklist">
+        <li><strong>Billing with no target</strong> — someone billed real money this month but has no target row in targets.xlsx (something's missing on the target side)</li>
+        <li><strong>Way-over-target achievement</strong> — anyone whose achievement is wildly above their target (e.g. Arpit's 5608% JNS anomaly) gets flagged for a human look, not hidden inside a big percentage number</li>
+      </ul>
+
+      <div class="callout ok">
+        <span class="lbl">Why this matters</span>
+        <p>This is a built-in second pair of eyes. It catches <em>data</em> problems (a name that didn't match, a missing target row) — not code bugs — before the report reaches the CTO/CXO. "All OK, nothing flagged" is what makes a report trustworthy enough to forward without re-checking it by hand.</p>
+      </div>
+    </section>
+
+    <!-- ══════════════════ 13 CHECKLIST ══════════════════ -->
+    <section id="s13">
+      <div class="sec-head"><span class="sec-num">13</span><h2>Monthly Checklist</h2></div>
+      <p class="lead">This automates the math. It does <strong>not</strong> automate judgment.</p>
+      <ul class="checklist">
+        <li><span class="step-pill one">Step 1</span> Run <strong>Moto_InputFiles_Validator.ipynb</strong> on this month's files — check for duplicates and missing data</li>
+        <li>Only once satisfied it's clean — drop the files into <code>input_files/</code></li>
+        <li><span class="step-pill two">Step 2</span> Run <strong>Billing_Summary_Generator.ipynb</strong> — Restart &amp; Run All</li>
+        <li>Read the <strong>Step 3b</strong> output — any name merge that looks wrong?</li>
+        <li>Read the <strong>Step 8</strong> output (§12 above) — any reconciliation MISMATCH or flagged anomaly?</li>
+        <li>If a new joiner or a real Mouser number came in — update the Generator's <strong>Step 1 settings</strong> first, then re-run</li>
+        <li>Only then forward the file in <code>output_files/</code> to the CTO/CXO</li>
+      </ul>
+      <div class="callout ok">
+        <span class="lbl">Bottom line</span>
+        <p>If the Validator is clean and the Generator's own checks both say "all clear," the numbers are trustworthy — the script did the arithmetic correctly on whatever data it was given. Anything either script flags is exactly where a human still needs to look.</p>
+      </div>
+    </section>
+
+    <footer>
+      <div>Project Moto — by Chunmun — Billing Summary Generator, Field Manual</div>
+      <div><span class="stamp">Client:</span> Lalli &nbsp;·&nbsp; <span class="stamp">Developer:</span> Chunmun</div>
+    </footer>
+
+  </main>
+</div>
+</body>
+</html>

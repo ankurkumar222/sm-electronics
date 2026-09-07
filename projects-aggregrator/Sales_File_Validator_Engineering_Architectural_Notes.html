@@ -1,0 +1,890 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sales File Validator — Engineering Architectural Notes</title>
+<style>
+:root {
+  --bg:#f4f7fb; --card:#ffffff; --text:#172033; --muted:#64748b;
+  --line:#dfe6ef; --blue:#2563eb; --blue-soft:#eff6ff;
+  --code:#0f172a; --code-text:#e2e8f0;
+}
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  line-height:1.65;
+}
+.page { max-width:1120px; margin:auto; padding:32px 20px 70px; }
+.hero {
+  background:linear-gradient(135deg,#172554,#2563eb);
+  color:#fff; border-radius:24px; padding:42px;
+  box-shadow:0 20px 50px rgba(37,99,235,.18);
+  margin-bottom:28px;
+}
+.hero h1 { margin:0 0 10px; font-size:36px; line-height:1.15; }
+.hero p { margin:0; color:#dbeafe; font-size:16px; }
+.document {
+  background:var(--card); border:1px solid var(--line);
+  border-radius:18px; padding:34px;
+  box-shadow:0 7px 25px rgba(15,23,42,.05);
+}
+h1,h2,h3,h4 { color:var(--text); line-height:1.25; }
+h2 {
+  margin-top:42px; padding-top:16px;
+  border-top:1px solid var(--line);
+  font-size:26px;
+}
+h3 { margin-top:28px; font-size:20px; }
+blockquote {
+  margin:18px 0; padding:13px 17px;
+  background:var(--blue-soft); border-left:4px solid var(--blue);
+  border-radius:8px;
+}
+pre {
+  background:var(--code); color:var(--code-text);
+  padding:18px; border-radius:12px; overflow:auto;
+  font-size:13px; line-height:1.55;
+}
+code {
+  background:#f1f5f9; padding:2px 6px; border-radius:5px;
+  font-size:.92em;
+}
+pre code { background:transparent; padding:0; }
+table { width:100%; border-collapse:collapse; margin:18px 0; }
+th,td {
+  padding:11px 13px; border:1px solid var(--line);
+  text-align:left; vertical-align:top;
+}
+th { background:#f8fafc; }
+a { color:var(--blue); }
+hr { border:0; border-top:1px solid var(--line); margin:30px 0; }
+.footer { text-align:center; color:var(--muted); font-size:13px; margin-top:30px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <section class="hero">
+    <h1>Sales File Validator</h1>
+    <p>Engineering Architectural Notes for the Validator Solution</p>
+  </section>
+  <main class="document">
+    <p>Yes. Now that I have the <strong>actual</strong> <strong><code>Sales_File_Validator.ipynb</code></strong>, I would change the previous framework substantially.</p>
+<p>The earlier framework was a <strong>business-rule design</strong>. Your actual code has evolved into a more concrete architecture with <strong>7 functional rule categories</strong>, and some rules I previously proposed are either not implemented or are implemented differently.</p>
+<p>Below is the <strong>actual validation-rule framework as the code currently implements it</strong>.</p>
+<hr />
+<h1>Sales File Validator — Actual Rule Framework</h1>
+<h2>1. Architecture at a glance</h2>
+<p>Your validator is effectively doing this:</p>
+<pre><code class="language-text">                     SENT FILES
+                         │
+                         │
+                         ▼
+                 ┌───────────────┐
+                 │ FILE PAIRING  │
+                 │    INT        │
+                 └───────┬───────┘
+                         │
+                         ▼
+                 ┌───────────────┐
+                 │ SENT FILE     │
+                 │ CONSISTENCY   │
+                 │    STR        │
+                 └───────┬───────┘
+                         │
+                         ▼
+                 ┌───────────────┐
+                 │ RETURN FILE   │
+                 │ STRUCTURE     │
+                 │    STR        │
+                 └───────┬───────┘
+                         │
+                         ▼
+                 ┌───────────────┐
+                 │ ROW IDENTITY  │
+                 │    ROW        │
+                 └───────┬───────┘
+                         │
+                         ▼
+              ┌──────────┴──────────┐
+              │                     │
+              ▼                     ▼
+       ┌─────────────┐       ┌─────────────┐
+       │ PROTECTED   │       │  FORMULA /  │
+       │ DATA        │       │ CALCULATION │
+       │    PRT      │       │  CAL        │
+       └──────┬──────┘       └──────┬──────┘
+              │                     │
+              └──────────┬──────────┘
+                         ▼
+                 ┌───────────────┐
+                 │ CHANGE PATTERN│
+                 │     PAT       │
+                 └───────┬───────┘
+                         │
+                         ▼
+                 ┌───────────────┐
+                 │ FINDINGS /    │
+                 │ REPORTING     │
+                 └───────────────┘
+</code></pre>
+<p>Your notebook itself describes the main validation engine as checking <strong>structure, row identity, protected data, formula integrity, calculation integrity, and change patterns</strong>.</p>
+<hr />
+<h1>2. Rule Category 1 — File Pairing</h1>
+<h2><code>INT</code></h2>
+<p>This happens <strong>before Excel-content validation</strong>.</p>
+<h3><code>INT-002</code> — Sent/Received File Pairing</h3>
+<pre><code class="language-text">Sent Files                         Received Files
+
+Harsh.xlsx        ───────────────► Harsh.xlsx
+Arpit.xlsx        ───────────────► Arpit.xlsx
+Suraj.xlsx        ───────────────► ❌ Missing
+                                          
+Unknown.xlsx      ◄─────────────── Returned only
+</code></pre>
+<p>The validator matches files using the <strong>salesperson name</strong>, rather than requiring the exact filename to be identical. This handles names such as <code>Copy of Harsh-...xlsx</code>.</p>
+<h3>Rule</h3>
+<pre><code class="language-text">INT-002
+────────────────────────────────────────
+Every sent file must have a return file.
+Every return file must have a matching sent file.
+</code></pre>
+<h3>Severity</h3>
+<pre><code class="language-text">CRITICAL
+</code></pre>
+<h3>Why it matters</h3>
+<p>If there is no pair:</p>
+<pre><code class="language-text">NO SENT FILE
+      │
+      ▼
+Cannot establish baseline
+      │
+      ▼
+       ❌
+</code></pre>
+<p>This is therefore an <strong>intake/integration rule</strong>, not a spreadsheet-content rule.</p>
+<hr />
+<h1>3. Rule Category 2 — Structure</h1>
+<h2><code>STR</code></h2>
+<p>This category answers:</p>
+<blockquote>
+<p><strong>&quot;Is the Excel file structurally safe to validate?&quot;</strong></p>
+</blockquote>
+<p>Your actual code has <strong>five main structural rules plus one baseline-consistency rule</strong>.</p>
+<hr />
+<h2><code>STR-001</code> — Required Sheet Missing</h2>
+<p>Example:</p>
+<pre><code class="language-text">Expected:
+
+INR Sheet     ✅
+USD Sheet     ✅
+Direct Sheet  ✅
+
+
+Returned:
+
+INR Sheet     ✅
+USD Sheet     ❌
+Direct Sheet  ✅
+</code></pre>
+<p>Result:</p>
+<pre><code class="language-text">STR-001
+CRITICAL
+</code></pre>
+<p>The code explicitly raises this when a sheet existed in the sent file but is missing from the return.</p>
+<hr />
+<h2><code>STR-002/003</code> — Header Changed / Moved / Missing</h2>
+<p>This is actually <strong>two structural concepts grouped into one finding code</strong>.</p>
+<p>The validator compares:</p>
+<pre><code class="language-text">SENT                         RETURNED
+
+Column A = Customer Code     Column A = Customer Code   ✅
+Column B = Customer Name     Column B = Part Number     ❌
+Column C = Part Number       Column C = Customer Name   ❌
+</code></pre>
+<p>So this catches:</p>
+<pre><code class="language-text">Header changed
+Header moved
+Header missing
+Column position changed
+</code></pre>
+<h3>Rule</h3>
+<pre><code class="language-text">STR-002/003
+────────────────────────────────────────
+Every header must remain exactly where
+it was in the sent file.
+</code></pre>
+<h3>Severity</h3>
+<pre><code class="language-text">CRITICAL
+</code></pre>
+<p>And importantly, the code <strong>stops processing that sheet after a header break</strong>, because column meaning can no longer be trusted.</p>
+<p>That's a very good architectural decision.</p>
+<hr />
+<h1>4. <code>STR-004</code> — Duplicate Header</h1>
+<p>Example:</p>
+<pre><code class="language-text">Customer Code
+Customer Name
+Part Number
+Customer Name    ← duplicate
+</code></pre>
+<p>The validator explicitly tracks headers already seen and flags duplicates.</p>
+<pre><code class="language-text">STR-004
+   │
+   ▼
+Duplicate column header
+   │
+   ▼
+CRITICAL
+</code></pre>
+<p>Why critical?</p>
+<p>Because code like:</p>
+<pre><code class="language-text">header → column
+</code></pre>
+<p>can become ambiguous.</p>
+<hr />
+<h1>5. <code>STR-005</code> — Structural Anomaly</h1>
+<p>This is your <strong>catch-all structural rule</strong>.</p>
+<p>It currently covers things such as:</p>
+<pre><code class="language-text">Unexpected sheet
+     OR
+Customer Code cannot be found
+     OR
+Part Number cannot be found
+</code></pre>
+<p>Example:</p>
+<pre><code class="language-text">Returned file
+
+INR Sheet      ✅
+USD Sheet      ❌ never existed in sent file
+</code></pre>
+<p>→ <code>STR-005</code></p>
+<p>Or:</p>
+<pre><code class="language-text">Customer Code column
+       │
+       ▼
+Not found
+</code></pre>
+<p>→ <code>STR-005</code></p>
+<p>So conceptually:</p>
+<pre><code class="language-text">STR-005
+────────────────────────────
+&quot;Something fundamental about
+the workbook structure is wrong.&quot;
+</code></pre>
+<hr />
+<h1>6. <code>STR-006</code> — Sent Template Consistency</h1>
+<p>This is an important rule that wasn't in our original business assumptions.</p>
+<p>Before validating Sales returns, your code validates:</p>
+<blockquote>
+<p><strong>Were all Sales people given the same template?</strong></p>
+</blockquote>
+<p>Example:</p>
+<pre><code class="language-text">                 SENT FILES
+
+Harsh     ────────┐
+Arpit     ────────┤
+Suraj     ────────┤
+                    ▼
+             Compare layouts
+                    │
+          ┌─────────┴─────────┐
+          ▼                   ▼
+       Same layout        Different layout
+          │                   │
+          ▼                   ▼
+          ✅                STR-006
+                              ❌
+</code></pre>
+<p>The most common header layout is used as the baseline and each salesperson's sent file is compared against it.</p>
+<h3>Severity</h3>
+<pre><code class="language-text">CRITICAL
+</code></pre>
+<h3>Architectural meaning</h3>
+<p>This is a <strong>pre-validation baseline rule</strong>.</p>
+<p>You're checking:</p>
+<pre><code class="language-text">&quot;Was our own input correct before
+we started blaming Sales?&quot;
+</code></pre>
+<p>That's excellent validation architecture.</p>
+<hr />
+<h1>7. Rule Category 3 — Row Identity</h1>
+<h2><code>ROW</code></h2>
+<p>This is where your validator correctly moved away from row-position comparison.</p>
+<p>Your actual identity is:</p>
+<pre><code class="language-text">Customer Code
+      +
+Part Number
+      │
+      ▼
+BUSINESS RECORD
+</code></pre>
+<p>The code creates an index for both sent and returned files using this combination.</p>
+<hr />
+<h1><code>ROW-004</code> — Duplicate Customer + Part</h1>
+<p>Example:</p>
+<pre><code class="language-text">Sent:
+
+C001 + ABC123       → 1 row
+
+
+Returned:
+
+C001 + ABC123       → row 50
+C001 + ABC123       → row 80
+                         ↑
+                      duplicate
+</code></pre>
+<p>Result:</p>
+<pre><code class="language-text">ROW-004
+WARNING
+</code></pre>
+<p>The validator specifically checks whether a key appears multiple times in the returned file when it appeared once or less in the sent file.</p>
+<hr />
+<h1><code>ROW-005</code> — Incomplete / Orphan Row</h1>
+<p>This is your <strong>Arpit ghost-row rule</strong>.</p>
+<pre><code class="language-text">Customer Code    Part Number
+
+C001             ABC123       ✅
+
+                 ABC123       ❌
+
+C001                            ❌
+</code></pre>
+<p>The code detects when exactly one of the two identity fields is populated.</p>
+<h3>Severity</h3>
+<pre><code class="language-text">WARNING
+</code></pre>
+<p>This is appropriate because an incomplete row needs investigation but isn't automatically proven to be destructive.</p>
+<hr />
+<h1><code>ROW-007</code> — Missing Sent Record</h1>
+<p>This asks:</p>
+<blockquote>
+<p>&quot;Did a record that Ops sent disappear from the returned file?&quot;</p>
+</blockquote>
+<pre><code class="language-text">SENT                         RETURNED
+
+C001 + ABC123    ───────X───────&gt; Missing
+</code></pre>
+<p>Result:</p>
+<pre><code class="language-text">ROW-007
+CRITICAL
+</code></pre>
+<p>This is much more serious than an inserted row because Sales has effectively <strong>lost a record</strong>.</p>
+<hr />
+<h1><code>ROW-008</code> — New / Unexpected Record</h1>
+<p>This asks:</p>
+<blockquote>
+<p>&quot;Did Sales return a Customer + Part combination that wasn't in the original file?&quot;</p>
+</blockquote>
+<pre><code class="language-text">SENT                         RETURNED
+
+C001 + ABC123     ────────────► C001 + ABC123
+                              
+                               C001 + XYZ999
+                               ↑
+                              NEW
+</code></pre>
+<p>Result:</p>
+<pre><code class="language-text">ROW-008
+WARNING
+</code></pre>
+<p>Your code even distinguishes:</p>
+<pre><code class="language-text">Customer already exists
+       ↓
+likely legitimate new part
+
+
+Customer doesn't exist
+       ↓
+worth double-checking
+</code></pre>
+<p>That context is built directly into the finding message.</p>
+<hr />
+<h1>8. Rule Category 4 — Protected Data</h1>
+<h2><code>PRT</code></h2>
+<p>This is the heart of your original requirement.</p>
+<p>The logic is:</p>
+<pre><code class="language-text">              Column changed?
+                    │
+              ┌─────┴─────┐
+              │           │
+             NO          YES
+              │           │
+              ▼           ▼
+             ✅      Is it allowed?
+                            │
+                       ┌────┴────┐
+                       │         │
+                      YES        NO
+                       │         │
+                       ▼         ▼
+                      ✅        ❌ PRT
+</code></pre>
+<p>The code explicitly follows a <strong>default-protected model</strong>:</p>
+<blockquote>
+<p>A column has to be explicitly allowed; it is never assumed safe to edit.</p>
+</blockquote>
+<p>This is one of the strongest architectural aspects of the current implementation.</p>
+<hr />
+<h1>9. Allowed Change Configuration</h1>
+<p>The actual code does <strong>not</strong> hard-code column letters.</p>
+<p>Instead it classifies the header:</p>
+<pre><code class="language-text">                 HEADER
+                    │
+                    ▼
+             classify_header()
+                    │
+        ┌───────────┼───────────┐
+        ▼           ▼           ▼
+     MASTER      FORECAST     BUDGET
+                    │
+                    ▼
+                MONTH = Nov
+                    │
+                    ▼
+              is_allowed()
+</code></pre>
+<p>The current configuration says:</p>
+<pre><code class="language-text">Active Forecast Month = Nov
+
+Catch-up Forecast = Sep, Oct
+
+Active Incoming = Oct
+</code></pre>
+<p>and these values are intended to be the only cycle-specific configuration changes.</p>
+<hr />
+<h1>10. Actual Allowed-Change Rules</h1>
+<p>Rather than treating these as separate hard-coded validation rules, your implementation treats them as <strong>configuration-driven permissions</strong>.</p>
+<h3>Forecast Quantity</h3>
+<pre><code class="language-text">ALW conceptually:
+
+Nov(F) Qty     → ALLOWED
+Sep(F) Qty     → ALLOWED
+Oct(F) Qty     → ALLOWED
+
+Dec(F) Qty     → PROTECTED
+Jan(F) Qty     → PROTECTED
+...
+</code></pre>
+<p>This is implemented inside <code>is_allowed()</code>.</p>
+<h3>Incoming</h3>
+<pre><code class="language-text">Oct Incoming   → ALLOWED
+
+Other Incoming
+               → PROTECTED
+</code></pre>
+<h3>EP Price</h3>
+<pre><code class="language-text">EP Price       → ALLOWED
+</code></pre>
+<h3>Remarks</h3>
+<pre><code class="language-text">Remarks        → ALLOWED
+</code></pre>
+<p>Everything else:</p>
+<pre><code class="language-text">               ↓
+          NOT ALLOWED
+               ↓
+          PRT violation
+</code></pre>
+<hr />
+<h1>11. What PRT Actually Protects</h1>
+<p>This is important because the code's architecture is slightly different from our earlier conceptual model.</p>
+<p>It doesn't simply say:</p>
+<pre><code class="language-text">Master data = protected
+Budget = protected
+Forecast = protected
+</code></pre>
+<p>Instead it effectively says:</p>
+<pre><code class="language-text">             EVERY COLUMN
+                  │
+                  ▼
+          Is it derived?
+             /       \
+           YES       NO
+            │         │
+            ▼         ▼
+       CAL checks   Is allowed?
+                       │
+                  ┌────┴────┐
+                  │         │
+                 YES        NO
+                  │         │
+                  ▼         ▼
+                 OK        PRT
+</code></pre>
+<p>So <strong>PRT is actually a generic &quot;unauthorized change&quot; rule</strong>.</p>
+<p>That's a better way to document it.</p>
+<h2>11.1 PRT in Plain Language — The Simple Rule Behind It</h2>
+<p>Everything in the file is <strong>protected by default</strong>. Only a small, explicit list of columns is allowed to change each cycle (this cycle: <code>Nov(F) Qty</code>, <code>Sep(F) Qty</code>, <code>Oct(F) Qty</code>, <code>Oct Incoming</code>, <code>EP Price</code>, <code>Remarks</code>). Everything else falls under Protected Data automatically — nobody had to list out every protected column by name; anything not on the &quot;allowed&quot; list is protected.</p>
+<h3>What Actually Falls Under It, in Plain Terms</h3>
+<h4>1. Customer &amp; business identity — never touched</h4>
+<ul>
+<li>Customer Code, Customer Name, Currency, Zone/Region</li>
+<li>Salesperson name, Sales CSR, Principal (brand), Make, PM Names</li>
+<li>Part Number, Segment/Sub-Segment, End Customer details</li>
+</ul>
+<p><strong>Why protected:</strong> this is master data pulled from your CRM before the file was ever sent — sales has no reason to ever edit it.</p>
+<h4>2. This year's official Budget — the whole Apr–Mar row of Quantity columns</h4>
+<ul>
+<li><code>Apr'26(B) Qty</code>, <code>May'26(B) Qty</code> … all the way through <code>Mar'27(B) Qty</code></li>
+</ul>
+<p><strong>Why protected:</strong> this is the approved annual target, set once earlier in the year. It's fixed for the whole year — sales editing it would mean quietly changing the company's official plan.</p>
+<h4>3. Forecast months that aren't &quot;due&quot; yet this cycle</h4>
+<ul>
+<li>Right now: <code>Dec(F) Qty</code>, <code>Jan(F) Qty</code>, <code>Feb(F) Qty</code>, <code>Mar(F) Qty</code></li>
+<li>(Only <code>Nov</code>, <code>Sep</code>, <code>Oct</code> are allowed this cycle — next cycle, the allowed list shifts forward and this list shifts with it)</li>
+</ul>
+<hr />
+<h1>12. Rule Category 5 — Formula Integrity &amp; Calculation</h1>
+<h2><code>CAL</code></h2>
+<p>This is another area where the actual implementation is more sophisticated than the original assumptions.</p>
+<p>Your code treats:</p>
+<pre><code class="language-text">Budget Value
+Forecast Value
+Summary Formula
+</code></pre>
+<p>as <strong>derived categories</strong> rather than normal Sales-editable columns.</p>
+<p>The principle is:</p>
+<pre><code class="language-text">               DERIVED FIELD
+                    │
+          ┌─────────┴─────────┐
+          ▼                   ▼
+     Did value change?    Does formula/
+                          calculation work?
+          │                   │
+          │                   ▼
+          │                 CAL-001
+          │
+          └── NOT the primary test
+</code></pre>
+<p>This is important because a formula-driven Value <strong>is expected to change when its inputs change</strong>.</p>
+<p>So:</p>
+<pre><code class="language-text">&quot;Value changed&quot;
+</code></pre>
+<p>does **not automatically mean:</p>
+<pre><code class="language-text">&quot;Sales changed something they shouldn't.&quot;
+</code></pre>
+<hr />
+<h1>13. <code>CAL-001</code> — Calculation Integrity</h1>
+<p>Example:</p>
+<pre><code class="language-text">Qty = 100
+EP Price = ₹50
+
+             │
+             ▼
+
+Expected Value
+= 100 × ₹50
+= ₹5,000
+</code></pre>
+<p>If returned file says:</p>
+<pre><code class="language-text">Value = ₹5,000
+</code></pre>
+<pre><code class="language-text">✅ CAL-001 passes
+</code></pre>
+<p>But:</p>
+<pre><code class="language-text">Value = ₹50,000
+</code></pre>
+<p>then:</p>
+<pre><code class="language-text">❌ CAL-001
+</code></pre>
+<p>The code also applies a configurable tolerance:</p>
+<pre><code class="language-text">cal_tolerance = 0.01
+</code></pre>
+<p>to accommodate rounding differences.</p>
+<hr />
+<h1>14. CAL-001 Also Covers Roll-up Calculations</h1>
+<p>Your validator isn't only checking:</p>
+<pre><code class="language-text">Qty × Price = Value
+</code></pre>
+<p>It also checks summary/roll-up formulas.</p>
+<p>Conceptually:</p>
+<pre><code class="language-text">Apr + May + Jun + ... + Nov
+                  │
+                  ▼
+             Roll-up total
+                  │
+                  ▼
+            Expected value
+                  │
+                  ▼
+             Compare actual
+</code></pre>
+<p>So <code>CAL-001</code> is better described as:</p>
+<blockquote>
+<p><strong>Calculated / derived value does not agree with its source inputs.</strong></p>
+</blockquote>
+<p>That is more accurate than calling it only a &quot;Qty × Price&quot; rule.</p>
+<hr />
+<h1>15. Rule Category 6 — Change Pattern</h1>
+<h2><code>PAT</code></h2>
+<p>This category asks a different question:</p>
+<blockquote>
+<p>&quot;The change is technically allowed — but is the amount of change suspicious?&quot;</p>
+</blockquote>
+<p>Your current implementation has:</p>
+<h3><code>PAT-001</code> — Excessive Change Volume</h3>
+<p>Configuration:</p>
+<pre><code class="language-text">pat_suspicious_pct = 50
+</code></pre>
+<p>So if an allowed column changes on ≥50% of applicable rows:</p>
+<pre><code class="language-text">Nov(F) Qty
+
+Total rows       = 1,000
+Changed rows     =   600
+
+600 / 1000
+     │
+     ▼
+    60%
+     │
+     ▼
+≥ 50%
+     │
+     ▼
+⚠️ PAT-001
+</code></pre>
+<p>The code deliberately excludes derived categories from this test because their changes are expected to follow their inputs.</p>
+<hr />
+<h1>16. Important Correction to Our Earlier Framework</h1>
+<p>Earlier we discussed separate rules such as:</p>
+<pre><code class="language-text">PAT-002 Mass blank/delete
+PAT-003 Same-column mass change
+PAT-004 New records
+PAT-005 Row-count change
+</code></pre>
+<p><strong>Those are NOT separate implemented rule codes in the current notebook.</strong></p>
+<p>Instead, the actual code currently captures:</p>
+<pre><code class="language-text">Mass protected-data deletion/change
+          ↓
+        PRT
+
+Mass allowed-column change
+          ↓
+       PAT-001
+
+New record
+          ↓
+       ROW-008
+
+Duplicate record
+          ↓
+       ROW-004
+</code></pre>
+<p>This distinction is important if we're going to create the formal specification from the actual code.</p>
+<hr />
+<h1>17. Actual Rule Master</h1>
+<p>I would therefore document the <strong>current implementation</strong> like this:</p>
+<table>
+<thead>
+<tr>
+  <th>CodeCategoryActual RuleSeverity</th>
+  <th></th>
+  <th></th>
+  <th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><strong>INT-002</strong></td>
+  <td>File Intake</td>
+  <td>Sent/received file cannot be paired</td>
+  <td>CRITICAL</td>
+</tr>
+<tr>
+  <td><strong>STR-001</strong></td>
+  <td>Structure</td>
+  <td>Required sheet missing from return</td>
+  <td>CRITICAL</td>
+</tr>
+<tr>
+  <td><strong>STR-002/003</strong></td>
+  <td>Structure</td>
+  <td>Header changed, moved or missing</td>
+  <td>CRITICAL</td>
+</tr>
+<tr>
+  <td><strong>STR-004</strong></td>
+  <td>Structure</td>
+  <td>Duplicate header</td>
+  <td>CRITICAL</td>
+</tr>
+<tr>
+  <td><strong>STR-005</strong></td>
+  <td>Structure</td>
+  <td>Unexpected sheet / key columns unavailable</td>
+  <td>CRITICAL</td>
+</tr>
+<tr>
+  <td><strong>STR-006</strong></td>
+  <td>Structure</td>
+  <td>Sent templates don't have consistent layout</td>
+  <td>CRITICAL</td>
+</tr>
+<tr>
+  <td><strong>ROW-004</strong></td>
+  <td>Row Identity</td>
+  <td>Duplicate Customer Code + Part Number</td>
+  <td>WARNING</td>
+</tr>
+<tr>
+  <td><strong>ROW-005</strong></td>
+  <td>Row Identity</td>
+  <td>Incomplete Customer Code + Part Number</td>
+  <td>WARNING</td>
+</tr>
+<tr>
+  <td><strong>ROW-007</strong></td>
+  <td>Row Identity</td>
+  <td>Sent record missing from return</td>
+  <td>CRITICAL</td>
+</tr>
+<tr>
+  <td><strong>ROW-008</strong></td>
+  <td>Row Identity</td>
+  <td>New record not present in sent file</td>
+  <td>WARNING</td>
+</tr>
+<tr>
+  <td><strong>PRT</strong></td>
+  <td>Data Protection</td>
+  <td>Unauthorized column change</td>
+  <td>CRITICAL</td>
+</tr>
+<tr>
+  <td><strong>CAL-001</strong></td>
+  <td>Calculation</td>
+  <td>Derived/calculated result incorrect</td>
+  <td>CRITICAL</td>
+</tr>
+<tr>
+  <td><strong>PAT-001</strong></td>
+  <td>Pattern</td>
+  <td>Allowed column changed on unusually high % of rows</td>
+  <td>WARNING</td>
+</tr>
+</tbody>
+</table>
+<p>These are the actual rule codes represented in the notebook's rule-description registry.</p>
+<hr />
+<h1>18. One Important Architectural Detail</h1>
+<p>I would <strong>not create</strong> <strong><code>ALW-001</code>****,</strong> <strong><code>ALW-002</code>****, etc. as failure codes</strong> in the current implementation.</p>
+<p>Why?</p>
+<p>Because &quot;allowed&quot; isn't an error.</p>
+<p>Your actual architecture is:</p>
+<pre><code class="language-text">                COLUMN
+                  │
+                  ▼
+           classify_header()
+                  │
+                  ▼
+             is_allowed()
+                  │
+          ┌───────┴────────┐
+          │                │
+       ALLOWED          NOT ALLOWED
+          │                │
+          ▼                ▼
+     Continue             PRT
+     validation           ERROR
+</code></pre>
+<p>So <code>ALW</code> is better treated as a <strong>configuration / permission model</strong>, not a finding category.</p>
+<p>That's an important refinement to the framework.</p>
+<hr />
+<h1>19. Final Architecture I Would Freeze</h1>
+<p>So, if we're documenting <strong>what the code actually does today</strong>, I would freeze the framework as:</p>
+<pre><code class="language-text">SALES FILE VALIDATOR
+│
+├── 01. INT — FILE INTAKE
+│      └── INT-002  File pairing
+│
+├── 02. STR — STRUCTURE
+│      ├── STR-001  Missing sheet
+│      ├── STR-002/003  Header integrity
+│      ├── STR-004  Duplicate header
+│      ├── STR-005  Structural anomaly
+│      └── STR-006  Sent-template consistency
+│
+├── 03. ROW — RECORD IDENTITY
+│      ├── ROW-004  Duplicate business key
+│      ├── ROW-005  Incomplete business key
+│      ├── ROW-007  Missing sent record
+│      └── ROW-008  Unexpected new record
+│
+├── 04. PRT — DATA PROTECTION
+│      └── PRT      Unauthorized data change
+│
+├── 05. CAL — CALCULATION INTEGRITY
+│      └── CAL-001  Derived/calculated value incorrect
+│
+├── 06. PAT — CHANGE PATTERN
+│      └── PAT-001  Excessive allowed-column changes
+│
+└── 07. RPT — REPORTING
+       ├── Rule-level finding
+       ├── Row-level finding
+       ├── Severity
+       └── Summary
+</code></pre>
+<p>And underneath it:</p>
+<pre><code class="language-text">              VALIDATION CONFIGURATION
+                       │
+             ┌─────────┼──────────┐
+             ▼         ▼          ▼
+          Active     Catch-up   Incoming
+          Month      Months      Month
+             │         │          │
+             └─────────┼──────────┘
+                       ▼
+                  RULE ENGINE
+</code></pre>
+<p>The current notebook already follows this configuration-driven approach: the cycle-specific settings are concentrated in <code>CONFIG</code>, while header classification and the validation logic below consume that configuration.</p>
+<h2>The most important distinction</h2>
+<p>I would now describe the solution in <strong>three layers</strong>, rather than simply calling everything a &quot;rule&quot;:</p>
+<pre><code class="language-text">┌────────────────────────────────────────────┐
+│  LAYER 1 — CONFIGURATION                   │
+│                                            │
+│  What is Sales allowed to edit this cycle? │
+│  Nov Forecast                              │
+│  Sep/Oct Catch-up                          │
+│  Oct Incoming                              │
+│  EP Price                                  │
+│  Remarks                                   │
+└─────────────────────┬──────────────────────┘
+                      │
+                      ▼
+┌────────────────────────────────────────────┐
+│  LAYER 2 — VALIDATION RULES                │
+│                                            │
+│  INT → Can we pair the files?              │
+│  STR → Is structure intact?                │
+│  ROW → Are records intact?                 │
+│  PRT → Did protected data change?          │
+│  CAL → Do calculations still work?         │
+│  PAT → Are changes suspiciously large?     │
+└─────────────────────┬──────────────────────┘
+                      │
+                      ▼
+┌────────────────────────────────────────────┐
+│  LAYER 3 — FINDINGS                        │
+│                                            │
+│  Rule Code                                 │
+│  Severity                                  │
+│  Person                                    │
+│  Sheet                                     │
+│  Customer Code                             │
+│  Part Number                               │
+│  Column                                    │
+│  Old Value                                 │
+│  New Value                                 │
+│  Explanation                               │
+└────────────────────────────────────────────┘
+</code></pre>
+<p><strong>This is the framework I would use as the authoritative baseline for the next step.</strong> It reflects the code you actually have, rather than the earlier conceptual assumptions.</p>
+
+  </main>
+  <div class="footer">Engineering Architectural Notes · Sales File Validator</div>
+</div>
+</body>
+</html>

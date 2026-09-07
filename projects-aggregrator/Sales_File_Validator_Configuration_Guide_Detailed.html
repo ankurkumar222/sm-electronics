@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales File Validator — Detailed Configuration Guide</title>
+<style>
+:root{
+  --bg:#f5f7fb;--card:#fff;--text:#172033;--muted:#64748b;
+  --line:#e2e8f0;--blue:#2563eb;--bluebg:#eff6ff;
+  --green:#15803d;--greenbg:#f0fdf4;--amber:#b45309;--amberbg:#fffbeb;
+  --red:#b91c1c;--redbg:#fef2f2
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.65}
+.wrap{max-width:1120px;margin:auto;padding:32px 20px 80px}
+.hero{background:linear-gradient(135deg,#172554,#2563eb);color:#fff;border-radius:24px;padding:44px;box-shadow:0 20px 50px #2563eb22}
+.hero h1{font-size:38px;line-height:1.12;margin:0 0 12px}
+.hero p{margin:0;color:#dbeafe;font-size:17px;max-width:820px}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
+.badge{padding:6px 11px;border:1px solid #ffffff35;background:#ffffff16;border-radius:999px;font-size:13px}
+h2{font-size:27px;margin:44px 0 13px}
+h3{font-size:20px;margin:25px 0 8px}
+.lead{color:var(--muted);font-size:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;margin:13px 0;overflow:hidden;box-shadow:0 5px 18px #0f172a08}
+summary{cursor:pointer;list-style:none;padding:18px 21px;font-weight:750;display:flex;align-items:center;gap:10px}
+summary::-webkit-details-marker{display:none}
+summary:before{content:"›";font-size:26px;color:var(--blue);transition:.2s}
+details[open] summary:before{transform:rotate(90deg)}
+.content{padding:0 21px 22px;border-top:1px solid var(--line)}
+pre{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:18px;overflow:auto;font-size:13px;line-height:1.55}
+code{background:#f1f5f9;padding:2px 6px;border-radius:5px}
+.config{background:#0b1220;color:#e2e8f0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:13px}
+.mini{padding:17px;border:1px solid var(--line);border-radius:13px;background:#fff}
+.mini strong{display:block;margin-bottom:5px}
+.ok{background:var(--greenbg);border-left:4px solid var(--green);padding:14px 16px;border-radius:8px;margin:14px 0}
+.warn{background:var(--amberbg);border-left:4px solid var(--amber);padding:14px 16px;border-radius:8px;margin:14px 0}
+.bad{background:var(--redbg);border-left:4px solid var(--red);padding:14px 16px;border-radius:8px;margin:14px 0}
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{padding:12px 13px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:#f8fafc;font-size:13px}
+.step{display:flex;gap:12px;margin:15px 0}
+.num{min-width:32px;height:32px;border-radius:50%;background:var(--blue);color:white;display:grid;place-items:center;font-weight:800}
+.footer{text-align:center;color:var(--muted);font-size:13px;margin-top:48px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<section class="hero">
+<h1>Sales File Validator</h1>
+<p><strong>Detailed Configuration &amp; Pre-Run Guide</strong><br>
+A practical guide to configuring the validator before each monthly Sales-file validation cycle.</p>
+<div class="badges">
+<span class="badge">Configuration-driven</span>
+<span class="badge">Monthly cycle</span>
+<span class="badge">Sales return validation</span>
+<span class="badge">Interactive sections</span>
+</div>
+</section>
+
+<h2>1. ⚙️ The Big Picture</h2>
+<p class="lead">Think of <code>CONFIG</code> as the control panel. The validation engine should normally remain unchanged. The configuration tells the engine what business cycle it is validating.</p>
+<pre>
+                         CONFIGURATION
+                               │
+             ┌─────────────────┼─────────────────┐
+             ▼                 ▼                 ▼
+          FOLDERS          BUSINESS CYCLE     THRESHOLDS
+             │                 │                 │
+             ▼                 ▼                 ▼
+        Where are files?   What may Sales     How sensitive
+                           edit this month?   are checks?
+</pre>
+
+<div class="card"><details open><summary>Simple rule to remember</summary><div class="content">
+<div class="ok"><strong>Every month, the validator logic should stay the same. The business-cycle configuration moves forward.</strong></div>
+<p>For example, if November is the active forecast month this cycle, configure November. When the cycle moves to December, update the month configuration rather than rewriting validation logic.</p>
+</div></details></div>
+
+<h2>2. 📁 File Locations</h2>
+<div class="card"><details open><summary>What files go where?</summary><div class="content">
+<pre>input_files/
+│
+├── sent_files/          ← Original files sent to Sales
+│
+└── received_files/      ← Files returned by Sales
+
+validation_reports/      ← Validator output</pre>
+<div class="grid">
+<div class="mini"><strong><code>SENT_DIR</code></strong>The baseline: what Ops originally gave Sales.</div>
+<div class="mini"><strong><code>RECEIVED_DIR</code></strong>The file that came back from Sales.</div>
+<div class="mini"><strong><code>REPORT_DIR</code></strong>Where validation findings and reports are saved.</div>
+</div>
+</div></details></div>
+
+<h2 id="active">3. 📅 Active Forecast Month</h2>
+<p class="lead">This is one of the most important settings in the entire validator.</p>
+
+<div class="card"><details open><summary>What does “Active Forecast Month” mean?</summary><div class="content">
+<p>The spreadsheet contains forecast columns for multiple months. Sales is not expected to actively work on all of them in every cycle.</p>
+<p><strong>Active Forecast Month</strong> means: <em>“Which forecast month is the main Sales input for this validation cycle?”</em></p>
+<pre>
+Forecast timeline
+
+Apr   May   Jun   Jul   Aug   Sep   Oct   NOV   Dec   Jan   Feb   Mar
+ │     │     │     │     │     │     │     │     │     │     │     │
+ │     │     │     │     │     │     │     │     │     │     │     │
+                                   catch-up   ★ ACTIVE
+                                              │
+                                              ├── Nov(F) Qty
+                                              └── Nov(F) Value
+</pre>
+<p>For the current example:</p>
+<pre>ACTIVE_FORECAST_MONTH = "Nov"</pre>
+</div></details></div>
+
+<div class="card"><details><summary>What does the validator do with this setting?</summary><div class="content">
+<p>The validator uses the active month to decide which forecast fields are expected to be editable.</p>
+<pre>
+                 ACTIVE_FORECAST_MONTH
+                         │
+                         ▼
+                      "Nov"
+                         │
+              ┌──────────┴──────────┐
+              ▼                     ▼
+          Nov(F) Qty           Nov(F) Value
+              │                     │
+              └──────────┬──────────┘
+                         ▼
+                    Sales input
+</pre>
+<p>If November is active, a change in November forecast fields can be legitimate. A change in an unrelated future forecast month can instead become a protected-data violation.</p>
+</div></details></div>
+
+<div class="card"><details><summary>Why is this configuration necessary?</summary><div class="content">
+<p>Without this setting, the validator cannot distinguish between:</p>
+<pre>
+"Sales updated the forecast month they were asked to work on"
+                         VS
+"Sales changed a forecast month that was not due yet"
+</pre>
+<p>That distinction is central to the validation model.</p>
+</div></details></div>
+
+<div class="card"><details><summary>What happens if I configure the wrong month?</summary><div class="content">
+<div class="bad"><strong>Wrong active month = potentially wrong validation results.</strong></div>
+<p>Example: suppose November is actually the active month, but configuration says December.</p>
+<pre>
+Actual business cycle:
+Nov(F) Qty → allowed
+
+Validator configuration:
+Dec(F) Qty → allowed
+
+Result:
+Nov changes may be incorrectly flagged
+Dec changes may incorrectly be accepted
+</pre>
+<p>So this setting must be checked before every monthly run.</p>
+</div></details></div>
+
+<div class="card"><details><summary>What should I change next month?</summary><div class="content">
+<pre>
+November cycle:
+ACTIVE_FORECAST_MONTH = "Nov"
+
+December cycle:
+ACTIVE_FORECAST_MONTH = "Dec"
+
+January cycle:
+ACTIVE_FORECAST_MONTH = "Jan"</pre>
+<div class="ok"><strong>Change the configuration, not the validation engine.</strong></div>
+</div></details></div>
+
+<h2 id="catchup">4. 🔄 Catch-up Months</h2>
+<p class="lead">Catch-up months are previous forecast months that Sales is still allowed to correct or fine-tune.</p>
+
+<div class="card"><details open><summary>What is a catch-up month?</summary><div class="content">
+<p>Imagine November is the main forecast month. September and October are already behind us, but Sales may still need to correct those forecasts using information that became available later.</p>
+<pre>
+                     MAIN WORK
+                         │
+                         ▼
+Sep          Oct          NOV          Dec
+│            │             │            │
+│            │             │            │
+└─ catch-up ─┘             ★ active     🔒
+   corrections
+</pre>
+<p>So catch-up does <strong>not</strong> mean “Sales can edit everything in those months.” It means the configured forecast fields for those months are treated as legitimate editable inputs according to the validator's rules.</p>
+</div></details></div>
+
+<div class="card"><details><summary>Current example configuration</summary><div class="content">
+<pre>CATCHUP_FORECAST_MONTHS = ["Sep", "Oct"]</pre>
+<pre>
+Sep(F) Qty     → ✅ allowed catch-up
+Oct(F) Qty     → ✅ allowed catch-up
+Nov(F) Qty     → ✅ active month
+
+Dec(F)         → 🔒 protected
+Jan(F)         → 🔒 protected
+Feb(F)         → 🔒 protected
+Mar(F)         → 🔒 protected
+</pre>
+</div></details></div>
+
+<div class="card"><details><summary>Why do we need this separate from the active month?</summary><div class="content">
+<p>Because the business process has two different kinds of legitimate changes:</p>
+<div class="grid">
+<div class="mini"><strong>Active month</strong>The main forecast Sales is currently expected to fill.</div>
+<div class="mini"><strong>Catch-up months</strong>Previous months where Sales may still make corrections.</div>
+</div>
+<p>This gives the validator a more precise rule than simply saying “Sales can edit forecast columns.”</p>
+</div></details></div>
+
+<div class="card"><details><summary>What happens if catch-up months are wrong?</summary><div class="content">
+<pre>
+If Oct should be editable but Oct is NOT configured:
+
+Oct(F) change
+      ↓
+Validator sees it as protected
+      ↓
+❌ False violation</pre>
+<pre>
+If Dec should be protected but Dec is accidentally configured
+as a catch-up month:
+
+Dec(F) change
+      ↓
+Validator may accept it
+      ↓
+⚠ Real unauthorized change could be missed</pre>
+<div class="warn"><strong>Therefore, catch-up configuration should be based on the actual monthly business process, not simply on the previous two calendar months.</strong></div>
+</div></details></div>
+
+<div class="card"><details><summary>What should I review each month?</summary><div class="content">
+<p>Ask one simple question:</p>
+<div class="ok"><strong>“Which previous forecast months are Sales still officially allowed to correct this cycle?”</strong></div>
+<p>Put exactly those months in <code>CATCHUP_FORECAST_MONTHS</code>.</p>
+</div></details></div>
+
+<h2 id="incoming">5. 🚚 Active Incoming Month</h2>
+<p class="lead">Incoming represents shipment/incoming information. The validator treats one configured recent Incoming month as the active Sales-editable month.</p>
+
+<div class="card"><details open><summary>What does “Active Incoming Month” mean?</summary><div class="content">
+<p>It means:</p>
+<blockquote><strong>“Which month's Incoming column is Sales currently allowed to update?”</strong></blockquote>
+<pre>ACTIVE_INCOMING_MONTH = "Oct"</pre>
+<pre>
+Incoming
+
+Aug ──🔒
+Sep ──🔒
+Oct ──✅  ← Active Incoming month
+Nov ──🔒
+Dec ──🔒
+</pre>
+</div></details></div>
+
+<div class="card"><details><summary>Why is Incoming treated separately from Forecast?</summary><div class="content">
+<p>Forecast and Incoming represent different business concepts.</p>
+<table>
+<tr><th>Area</th><th>Meaning</th></tr>
+<tr><td>Forecast</td><td>What Sales expects / forecasts.</td></tr>
+<tr><td>Incoming</td><td>Shipment or goods-in-transit information that may change as delivery status becomes clearer.</td></tr>
+</table>
+<p>Therefore the validator needs separate configuration for the active Forecast month and active Incoming month.</p>
+</div></details></div>
+
+<div class="card"><details><summary>Example of a legitimate Incoming change</summary><div class="content">
+<pre>
+Before:
+Oct Incoming = 500
+
+New shipment information arrives:
+300 units will actually arrive this month
+
+After:
+Oct Incoming = 300
+
+                         ↓
+                    Allowed change
+</pre>
+<p>The exact business reason may vary, but the important point is that the configured active Incoming month is considered an editable Sales input.</p>
+</div></details></div>
+
+<div class="card"><details><summary>What if the wrong Incoming month is configured?</summary><div class="content">
+<pre>
+Actual:
+Oct Incoming is active
+
+Configuration:
+Nov Incoming is active
+
+Then:
+Oct Incoming change → may be incorrectly flagged
+Nov Incoming change → may be incorrectly accepted
+</pre>
+<div class="bad"><strong>Always verify this setting against the current business cycle.</strong></div>
+</div></details></div>
+
+<h2 id="november">6. 🗓️ November-Cycle Example</h2>
+<p class="lead">This section puts all three business-cycle settings together so the rule is easy to visualize.</p>
+
+<div class="card"><details open><summary>Current example configuration</summary><div class="content">
+<pre>
+ACTIVE_FORECAST_MONTH = "Nov"
+
+CATCHUP_FORECAST_MONTHS = ["Sep", "Oct"]
+
+ACTIVE_INCOMING_MONTH = "Oct"
+</pre>
+</div></details></div>
+
+<div class="card"><details open><summary>What Sales is allowed to change</summary><div class="content">
+<pre>
+FORECAST
+──────────────────────────────────────────────
+Sep(F) Qty       → ✅ Catch-up
+Oct(F) Qty       → ✅ Catch-up
+Nov(F) Qty       → ✅ Active
+Nov(F) Value     → ✅ Active
+
+Dec–Mar Forecast → 🔒 Protected
+
+
+INCOMING
+──────────────────────────────────────────────
+Oct Incoming     → ✅ Active
+Other Incoming   → 🔒 Protected
+
+
+OTHER OCCASIONAL INPUTS
+──────────────────────────────────────────────
+EP Price         → 🟡 Allowed
+Remarks          → 🟡 Allowed
+</pre>
+</div></details></div>
+
+<div class="card"><details><summary>What Sales should NOT change</summary><div class="content">
+<pre>
+Customer Code
+Customer Name
+Part Number
+Salesperson / master data
+Annual Budget
+Non-active Forecast months
+Historical / non-active Incoming
+Other protected fields
+        │
+        ▼
+       🔒
+</pre>
+<p>If any of these change, the validator can raise a protected-data finding.</p>
+</div></details></div>
+
+<div class="card"><details><summary>How one returned file travels through validation</summary><div class="content">
+<pre>
+                  SENT FILE
+                     │
+                     │ baseline
+                     ▼
+              ┌──────────────┐
+              │ RETURN FILE  │
+              └──────┬───────┘
+                     │
+                     ▼
+            1. Check structure
+                     │
+                     ▼
+            2. Identify records
+              Customer Code
+                    +
+              Part Number
+                     │
+                     ▼
+            3. Find what changed
+                     │
+          ┌──────────┼──────────┐
+          ▼          ▼          ▼
+       Allowed    Protected   New/Invalid
+          │          │          │
+          ▼          ▼          ▼
+       Continue      ❌         ❌
+          │
+          ▼
+     Pattern checks
+          │
+          ▼
+     Calculation checks
+          │
+          ▼
+       REPORT
+</pre>
+</div></details></div>
+
+<div class="card"><details><summary>Why this example matters</summary><div class="content">
+<p>The validator is not simply asking:</p>
+<pre>“Did anything change?”</pre>
+<p>It is asking:</p>
+<pre>
+“Did anything change?
+       │
+       ├── Was the change allowed for this cycle?
+       │
+       ├── If allowed, was the amount/pattern suspicious?
+       │
+       └── If derived, does the calculation still make sense?”
+</pre>
+<p>That is the core business logic of the solution.</p>
+</div></details></div>
+
+<h2 id="config">7. ⭐ Recommended <code>CONFIG</code> Structure</h2>
+<p class="lead">Keep configuration separate from validation logic. This makes the notebook easier to operate and prevents monthly business changes from becoming code changes.</p>
+
+<div class="card"><details open><summary>Recommended configuration layout</summary><div class="content">
+<pre class="config">
+# ============================================================
+# 1. FILE CONFIGURATION
+# ============================================================
+
+SENT_DIR = "input_files/sent_files"
+RECEIVED_DIR = "input_files/received_files"
+REPORT_DIR = "validation_reports"
+
+
+# ============================================================
+# 2. BUSINESS CYCLE CONFIGURATION
+# ============================================================
+
+ACTIVE_FORECAST_MONTH = "Nov"
+
+CATCHUP_FORECAST_MONTHS = [
+    "Sep",
+    "Oct"
+]
+
+ACTIVE_INCOMING_MONTH = "Oct"
+
+
+# ============================================================
+# 3. VALIDATION SENSITIVITY
+# ============================================================
+
+PAT_SUSPICIOUS_PCT = 50
+
+CAL_TOLERANCE = 0.01
+</pre>
+</div></details></div>
+
+<div class="card"><details><summary>Section 1 — File Configuration</summary><div class="content">
+<table>
+<tr><th>Setting</th><th>Question it answers</th></tr>
+<tr><td><code>SENT_DIR</code></td><td>Where are the original files?</td></tr>
+<tr><td><code>RECEIVED_DIR</code></td><td>Where are the returned Sales files?</td></tr>
+<tr><td><code>REPORT_DIR</code></td><td>Where should validation results be written?</td></tr>
+</table>
+<p>These normally do not change from month to month if the folder structure stays the same.</p>
+</div></details></div>
+
+<div class="card"><details><summary>Section 2 — Business Cycle Configuration</summary><div class="content">
+<table>
+<tr><th>Setting</th><th>Question it answers</th></tr>
+<tr><td><code>ACTIVE_FORECAST_MONTH</code></td><td>Which forecast month is the main active month?</td></tr>
+<tr><td><code>CATCHUP_FORECAST_MONTHS</code></td><td>Which previous forecast months may still be corrected?</td></tr>
+<tr><td><code>ACTIVE_INCOMING_MONTH</code></td><td>Which Incoming month may Sales update?</td></tr>
+</table>
+<div class="ok"><strong>This is the section you are most likely to update every month.</strong></div>
+</div></details></div>
+
+<div class="card"><details><summary>Section 3 — Validation Sensitivity</summary><div class="content">
+<table>
+<tr><th>Setting</th><th>Question it answers</th></tr>
+<tr><td><code>PAT_SUSPICIOUS_PCT</code></td><td>At what percentage of changed rows should an allowed change pattern become suspicious?</td></tr>
+<tr><td><code>CAL_TOLERANCE</code></td><td>How much numerical difference can be ignored as rounding/calculation noise?</td></tr>
+</table>
+<p>These are generally stable settings. They should be changed only when the validation policy changes.</p>
+</div></details></div>
+
+<div class="card"><details><summary>Why not hard-code protected columns?</summary><div class="content">
+<pre>
+                    COLUMN
+                       │
+                       ▼
+              Explicitly allowed?
+                  /                        YES         NO
+                 │           │
+                 ▼           ▼
+              ALLOW       PROTECT
+</pre>
+<div class="ok"><strong>Default-deny is safer:</strong> if a new column appears and nobody has explicitly said Sales may edit it, it is not automatically trusted.</div>
+</div></details></div>
+
+<div class="card"><details><summary>What should never be mixed into monthly configuration?</summary><div class="content">
+<p>Avoid putting actual validation algorithms inside the monthly settings.</p>
+<pre>
+GOOD:
+ACTIVE_FORECAST_MONTH = "Nov"
+
+BAD:
+if month == "Nov":
+    special_validation_logic...
+</pre>
+<p>The first approach keeps the engine reusable. The second approach gradually turns the validator into a collection of month-specific exceptions.</p>
+</div></details></div>
+
+<h2 id="checklist">8. ✅ Pre-Run Checklist</h2>
+<p class="lead">This checklist is designed to be followed immediately before running the notebook.</p>
+
+<div class="card"><details open><summary>Step 1 — Check the input folders</summary><div class="content">
+<div class="step"><div class="num">1</div><div>Open <code>sent_files</code> and confirm the original files sent to Sales are present.</div></div>
+<div class="step"><div class="num">2</div><div>Open <code>received_files</code> and confirm the returned Sales files are present.</div></div>
+<div class="step"><div class="num">3</div><div>Make sure you are not accidentally mixing files from an older cycle.</div></div>
+<pre>
+sent_files/
+    ├── Harsh.xlsx
+    ├── Arpit.xlsx
+    └── Suraj.xlsx
+
+received_files/
+    ├── Harsh.xlsx
+    ├── Arpit.xlsx
+    └── Suraj.xlsx
+</pre>
+<div class="warn"><strong>Important:</strong> The sent file is the baseline. Do not overwrite it with the returned version.</div>
+</div></details></div>
+
+<div class="card"><details><summary>Step 2 — Check the active forecast month</summary><div class="content">
+<p>Ask:</p>
+<div class="ok"><strong>“What forecast month is Sales officially working on in this cycle?”</strong></div>
+<p>Then verify:</p>
+<pre>ACTIVE_FORECAST_MONTH = "Nov"</pre>
+<p>Do not guess based only on today's calendar month. Use the actual business process.</p>
+</div></details></div>
+
+<div class="card"><details><summary>Step 3 — Check the catch-up months</summary><div class="content">
+<p>Ask:</p>
+<div class="ok"><strong>“Which previous forecast months can Sales still correct?”</strong></div>
+<p>Verify:</p>
+<pre>CATCHUP_FORECAST_MONTHS = ["Sep", "Oct"]</pre>
+<p>Check that these are the actual business-approved catch-up months for the cycle.</p>
+</div></details></div>
+
+<div class="card"><details><summary>Step 4 — Check the active Incoming month</summary><div class="content">
+<p>Ask:</p>
+<div class="ok"><strong>“Which Incoming month can Sales update right now?”</strong></div>
+<p>Verify:</p>
+<pre>ACTIVE_INCOMING_MONTH = "Oct"</pre>
+</div></details></div>
+
+<div class="card"><details><summary>Step 5 — Check sensitivity settings</summary><div class="content">
+<p>Normally these remain unchanged:</p>
+<pre>PAT_SUSPICIOUS_PCT = 50
+CAL_TOLERANCE = 0.01</pre>
+<p>Change them only if the validation policy has been deliberately changed.</p>
+</div></details></div>
+
+<div class="card"><details><summary>Step 6 — Check the file structure before running</summary><div class="content">
+<p>Quickly verify:</p>
+<ul>
+<li>Files are Excel files expected by the validator.</li>
+<li>Original sent files are not modified.</li>
+<li>Returned files are the correct cycle.</li>
+<li>Required sheets are present where expected.</li>
+<li>No temporary or unrelated files are mixed into the input directories.</li>
+</ul>
+</div></details></div>
+
+<div class="card"><details><summary>Step 7 — Final configuration review</summary><div class="content">
+<table>
+<tr><th>Check</th><th>Expected</th><th>Done?</th></tr>
+<tr><td>Sent folder</td><td>Correct original files</td><td>☐</td></tr>
+<tr><td>Received folder</td><td>Correct Sales return files</td><td>☐</td></tr>
+<tr><td>Active Forecast</td><td>Correct current cycle month</td><td>☐</td></tr>
+<tr><td>Catch-up months</td><td>Business-approved previous months</td><td>☐</td></tr>
+<tr><td>Active Incoming</td><td>Correct recent Incoming month</td><td>☐</td></tr>
+<tr><td>Suspicious %</td><td>Approved threshold</td><td>☐</td></tr>
+<tr><td>Calculation tolerance</td><td>Approved tolerance</td><td>☐</td></tr>
+<tr><td>Output folder</td><td>Correct report location</td><td>☐</td></tr>
+</table>
+</div></details></div>
+
+<div class="card"><details open><summary>Step 8 — What should the operator change?</summary><div class="content">
+<div class="ok">
+<strong>In a normal monthly cycle, the operator should mainly review/change:</strong>
+<br><br>
+<code>ACTIVE_FORECAST_MONTH</code><br>
+<code>CATCHUP_FORECAST_MONTHS</code><br>
+<code>ACTIVE_INCOMING_MONTH</code>
+</div>
+<p>Folder paths and sensitivity values usually remain stable unless the operating environment or validation policy changes.</p>
+</div></details></div>
+
+<h2>9. 🔁 Complete Monthly Operating Model</h2>
+<div class="card"><details open><summary>From files arriving to final report</summary><div class="content">
+<pre>
+                ① PREPARE FILES
+                       │
+                       ▼
+              ┌─────────────────┐
+              │ sent_files      │
+              │ received_files  │
+              └────────┬────────┘
+                       │
+                       ▼
+                ② UPDATE CONFIG
+                       │
+             ┌─────────┼─────────┐
+             ▼         ▼         ▼
+          Forecast   Catch-up  Incoming
+             │         │         │
+             └─────────┼─────────┘
+                       ▼
+                 ③ RUN VALIDATOR
+                       │
+                       ▼
+          ┌──────────────────────────┐
+          │ Structure                │
+          │ Row Identity             │
+          │ Protected Changes        │
+          │ Calculation Integrity    │
+          │ Change Pattern           │
+          └────────────┬─────────────┘
+                       │
+                       ▼
+                 ④ REVIEW REPORT
+                       │
+                       ▼
+                ⑤ TAKE ACTION
+</pre>
+</div></details></div>
+
+<h2>10. 🎯 Golden Rules for Operators</h2>
+<div class="card"><details open><summary>The five rules to remember</summary><div class="content">
+<ol>
+<li><strong>Never modify the sent baseline file.</strong></li>
+<li><strong>Always configure the actual active forecast month.</strong></li>
+<li><strong>Only include business-approved catch-up months.</strong></li>
+<li><strong>Configure the correct active Incoming month separately.</strong></li>
+<li><strong>Do not change validator logic just because the month changed.</strong> Update configuration instead.</li>
+</ol>
+<div class="ok"><strong>One-line mental model:</strong> “Tell the validator what month Sales is working on, what previous months they can correct, what Incoming month is active, and where the files are.”</div>
+</div></details></div>
+
+<div class="footer">Sales File Validator · Detailed Configuration &amp; Pre-Run Guide</div>
+</div>
+</body>
+</html>
